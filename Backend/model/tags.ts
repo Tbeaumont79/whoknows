@@ -1,6 +1,5 @@
 import { Schema, model } from "mongoose"
 
-
 const tagSchema = new Schema({
     slug: {
         type: String,
