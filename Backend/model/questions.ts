@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, type InferSchemaType } from "mongoose";
 import { authorSnapshotSchema } from "./authorSnapshot.ts";
 
 const questionSchema = new Schema(
@@ -29,4 +29,5 @@ questionSchema.index(
     { weights: { title: 3, body: 1 }, default_language: "french", name: "question_text" }
 );
 
+export type Question = InferSchemaType<typeof questionSchema>
 export const QuestionModel = model("questions", questionSchema);
