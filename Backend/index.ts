@@ -1,13 +1,27 @@
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { connectDatabase } from './config/database.ts';
+import { loginUser } from './controller/login.ts';
+import { getMe } from './controller/me.ts';
+import { registerUser } from './controller/register.ts';
+import { requireAuth } from './middleware/auth.ts';
 import { env } from './validator/config/env.ts';
 
 const app: Express = express();
 await connectDatabase();
 
 app.use(helmet());
+// `credentials` est indispensable : sans lui le navigateur ignore le cookie de session.
+app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
+app.use(express.json({ limit: '100kb' }));
+app.use(cookieParser());
 
-app.listen(env.PORT, async () => {
+app.post('/api/auth/register', registerUser);
+app.post('/api/auth/login', loginUser);
+app.get('/api/auth/me', requireAuth, getMe);
+
+app.listen(env.PORT, () => {
     console.log(`Server is running on port ${env.PORT}`)
 })

@@ -1,0 +1,45 @@
+import { z } from 'zod';
+
+const PASSWORD_RULES = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
+
+export const registerUserSchema = z
+    .object({
+        email: z
+            .string()
+            .trim()
+            .toLowerCase()
+            .pipe(z.email('Email invalide')),
+        displayName: z
+            .string()
+            .trim()
+            .min(2, 'Le nom affiché doit contenir au moins 2 caractères')
+            .max(50, 'Le nom affiché ne peut pas dépasser 50 caractères'),
+        password: z
+            .string()
+            .min(12, 'Le mot de passe doit contenir au moins 12 caractères')
+            .regex(PASSWORD_RULES, 'Le mot de passe doit contenir une minuscule, une majuscule et un chiffre')
+            // bcrypt ignore silencieusement tout ce qui dépasse 72 octets.
+            .refine((value) => Buffer.byteLength(value) <= 72, 'Le mot de passe ne peut pas dépasser 72 octets'),
+        skills: z
+            .array(z.string().trim().min(1, 'Une compétence ne peut pas être vide').max(30))
+            .max(20, 'Pas plus de 20 compétences')
+            .default([]),
+    })
+    .strict();
+
+export type RegisterUserInput = z.output<typeof registerUserSchema>;
+
+// Volontairement sans les règles de complexité : elles n'ont de sens qu'à l'inscription,
+// et les appliquer ici révélerait la politique de mot de passe à un attaquant.
+export const loginUserSchema = z
+    .object({
+        email: z
+            .string()
+            .trim()
+            .toLowerCase()
+            .pipe(z.email('Email invalide')),
+        password: z.string().min(1, 'Le mot de passe est obligatoire'),
+    })
+    .strict();
+
+export type LoginUserInput = z.output<typeof loginUserSchema>;
