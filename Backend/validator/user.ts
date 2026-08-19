@@ -28,3 +28,18 @@ export const registerUserSchema = z
     .strict();
 
 export type RegisterUserInput = z.output<typeof registerUserSchema>;
+
+// Volontairement sans les règles de complexité : elles n'ont de sens qu'à l'inscription,
+// et les appliquer ici révélerait la politique de mot de passe à un attaquant.
+export const loginUserSchema = z
+    .object({
+        email: z
+            .string()
+            .trim()
+            .toLowerCase()
+            .pipe(z.email('Email invalide')),
+        password: z.string().min(1, 'Le mot de passe est obligatoire'),
+    })
+    .strict();
+
+export type LoginUserInput = z.output<typeof loginUserSchema>;
