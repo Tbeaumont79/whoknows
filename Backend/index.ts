@@ -5,6 +5,13 @@ import helmet from 'helmet';
 import { connectDatabase } from './config/database.ts';
 import { loginUser } from './controller/login.ts';
 import { getMe } from './controller/me.ts';
+import {
+    createQuestion,
+    deleteQuestion,
+    getQuestion,
+    listQuestions,
+    updateQuestion,
+} from './controller/question.ts';
 import { registerUser } from './controller/register.ts';
 import { requireAuth } from './middleware/auth.ts';
 import { env } from './validator/config/env.ts';
@@ -21,6 +28,12 @@ app.use(cookieParser());
 app.post('/api/auth/register', registerUser);
 app.post('/api/auth/login', loginUser);
 app.get('/api/auth/me', requireAuth, getMe);
+
+app.get('/api/questions', listQuestions);
+app.get('/api/questions/:id', getQuestion);
+app.post('/api/questions', requireAuth, createQuestion);
+app.patch('/api/questions/:id', requireAuth, updateQuestion);
+app.delete('/api/questions/:id', requireAuth, deleteQuestion);
 
 app.listen(env.PORT, () => {
     console.log(`Server is running on port ${env.PORT}`)
