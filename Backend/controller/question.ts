@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { HydratedDocument, QueryFilter, SortOrder } from 'mongoose';
+import mongoose, { type HydratedDocument, type QueryFilter, type SortOrder } from 'mongoose';
 import { z } from 'zod';
 import { AnswerModel } from '../model/answers.ts';
 import { QuestionModel, type Question } from '../model/questions.ts';
@@ -245,14 +245,18 @@ export async function deleteQuestion(req: Request, res: Response): Promise<void>
             return;
         }
 
-        // Idéalement une transaction, mais le MongoDB local tourne en standalone
-        // et les transactions exigent un replica set : on ordonne donc les
-        // suppressions pour que le pire cas soit récupérable.
-        // Les réponses d'abord — une coupure laisse alors une
-        // question au answerCount périmé, réparable en relançant le DELETE, plutôt
-        // que des réponses orphelines pointant vers une question disparue.
-        await AnswerModel.deleteMany({ questionId: question._id });
-        await QuestionModel.deleteOne({ _id: question._id });
+        // Sans transaction, une coupure entre les deux suppressions laisserait
+        // des réponses orphelines pointant vers une question disparue.
+        const session = await mongoose.startSession();
+
+        try {
+            await session.withTransaction(async () => {
+                await AnswerModel.deleteMany({ questionId: question._id }, { session });
+                await QuestionModel.deleteOne({ _id: question._id }, { session });
+            });
+        } finally {
+            await session.endSession();
+        }
 
         res.status(204).end();
     } catch (error: unknown) {

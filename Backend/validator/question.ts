@@ -1,7 +1,7 @@
 import { z } from 'zod';
+import { objectId } from './objectId.ts';
 
 const TAG_SLUG = /^[a-z0-9][a-z0-9-]*$/;
-const OBJECT_ID = /^[0-9a-fA-F]{24}$/;
 
 const questionFields = z.object({
     title: z
@@ -39,7 +39,7 @@ export const listQuestionsQuerySchema = z.object({
 });
 
 export const questionIdParamSchema = z.object({
-    id: z.string().regex(OBJECT_ID, 'Identifiant de question invalide'),
+    id: objectId('Identifiant de question invalide'),
 });
 
 export type CreateQuestionInput = z.output<typeof createQuestionSchema>;
