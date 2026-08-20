@@ -18,10 +18,16 @@ import {
 import { registerUser } from './controller/register.ts';
 import { requireAuth } from './middleware/auth.ts';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.ts';
+import { loginLimiter, registerLimiter } from './middleware/rateLimit.ts';
 import { env } from './validator/config/env.ts';
 
 const app: Express = express();
 await connectDatabase();
+
+// Les limiteurs identifient le client par son IP. Derrière un reverse proxy,
+// `trust proxy` est indispensable : sans lui toutes les requêtes portent l'IP du
+// proxy et le premier visiteur épuise le quota de tous les autres.
+app.set('trust proxy', env.TRUST_PROXY);
 
 app.use(helmet());
 // `credentials` est indispensable : sans lui le navigateur ignore le cookie de session.
@@ -29,8 +35,8 @@ app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 
-app.post('/api/auth/register', registerUser);
-app.post('/api/auth/login', loginUser);
+app.post('/api/auth/register', registerLimiter, registerUser);
+app.post('/api/auth/login', loginLimiter, loginUser);
 app.get('/api/auth/me', requireAuth, getMe);
 
 app.get('/api/questions', listQuestions);
