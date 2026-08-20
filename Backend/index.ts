@@ -3,6 +3,7 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { connectDatabase } from './config/database.ts';
+import { acceptAnswer } from './controller/accept.ts';
 import { createAnswer, deleteAnswer, listAnswers, updateAnswer } from './controller/answer.ts';
 import { loginUser } from './controller/login.ts';
 import { getMe } from './controller/me.ts';
@@ -41,6 +42,8 @@ app.get('/api/questions/:id/answers', listAnswers);
 app.post('/api/questions/:id/answers', requireAuth, createAnswer);
 app.patch('/api/answers/:id', requireAuth, updateAnswer);
 app.delete('/api/answers/:id', requireAuth, deleteAnswer);
+
+app.post('/api/questions/:id/accept', requireAuth, acceptAnswer);
 
 // Toujours en dernier : le catch-all 404 puis le handler d'erreur.
 app.use(notFoundHandler);

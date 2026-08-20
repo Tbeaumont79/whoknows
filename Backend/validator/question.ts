@@ -42,6 +42,12 @@ export const questionIdParamSchema = z.object({
     id: objectId('Identifiant de question invalide'),
 });
 
+export const acceptAnswerSchema = z
+    .object({
+        answerId: objectId('Identifiant de réponse invalide'),
+    })
+    .strict();
+
 export type CreateQuestionInput = z.output<typeof createQuestionSchema>;
 export type UpdateQuestionInput = z.output<typeof updateQuestionSchema>;
 export type ListQuestionsQuery = z.output<typeof listQuestionsQuerySchema>;

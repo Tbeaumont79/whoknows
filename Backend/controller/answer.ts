@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AnswerModel, type Answer } from '../model/answers.ts';
 import { QuestionModel, type Question } from '../model/questions.ts';
 import { userModel } from '../model/users.ts';
+import { shiftAcceptedByTag } from '../utils/reputation.ts';
 import {
     answerIdParamSchema,
     createAnswerSchema,
@@ -259,8 +260,12 @@ export async function deleteAnswer(req: Request, res: Response): Promise<void> {
 
                 // Supprimer la réponse acceptée doit rouvrir la question, sinon elle
                 // reste « resolved » en pointant vers un document qui n'existe plus.
-                if (question?.acceptedAnswerId?.toString() === answer._id.toString()) {
+                if (question !== null && question.acceptedAnswerId?.toString() === answer._id.toString()) {
                     update.$set = { acceptedAnswerId: null, status: 'open' };
+
+                    // …et rendre la réputation gagnée, sinon on la garde en
+                    // supprimant la réponse qui l'avait méritée.
+                    await shiftAcceptedByTag(answer.author._id, question.tags, -1, session);
                 }
 
                 await QuestionModel.updateOne({ _id: answer.questionId }, update, { session });
