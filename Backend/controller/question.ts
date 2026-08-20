@@ -5,6 +5,7 @@ import { AnswerModel } from '../model/answers.ts';
 import { QuestionModel, type Question } from '../model/questions.ts';
 import { tagModel } from '../model/tags.ts';
 import { userModel } from '../model/users.ts';
+import { shiftAcceptedByTag } from '../utils/reputation.ts';
 import {
     createQuestionSchema,
     listQuestionsQuerySchema,
@@ -200,19 +201,62 @@ export async function updateQuestion(req: Request, res: Response): Promise<void>
                 res.status(400).json({ message: `Tags inconnus : ${unknownTags.join(', ')}` });
                 return;
             }
-
-            question.tags = tags;
-        }
-        if (title !== undefined) {
-            question.title = title;
-        }
-        if (body !== undefined) {
-            question.body = body;
         }
 
-        await question.save();
+        const session = await mongoose.startSession();
+        let updated: HydratedDocument<Question> | undefined;
 
-        res.status(200).json(toQuestionResponse(question));
+        try {
+            await session.withTransaction(async () => {
+                updated = undefined;
+
+                const current = await QuestionModel.findById(question._id, null, { session });
+
+                if (current === null) {
+                    return;
+                }
+
+                if (tags !== undefined) {
+                    // Retaguer une question déjà résolue doit déplacer la réputation
+                    // avec les tags. Sans ça elle reste accrochée aux anciens, et la
+                    // restitution ultérieure porterait sur les nouveaux : l'auteur de
+                    // la réponse garde des points fantômes et en perd sur des tags
+                    // gagnés ailleurs.
+                    if (current.acceptedAnswerId !== null && current.acceptedAnswerId !== undefined) {
+                        const accepted = await AnswerModel.findById(current.acceptedAnswerId, null, { session });
+
+                        if (accepted !== null) {
+                            const previousTags = [...current.tags];
+                            const removed = previousTags.filter((tag) => !tags.includes(tag));
+                            const added = tags.filter((tag) => !previousTags.includes(tag));
+
+                            await shiftAcceptedByTag(accepted.author._id, removed, -1, session);
+                            await shiftAcceptedByTag(accepted.author._id, added, 1, session);
+                        }
+                    }
+
+                    current.tags = tags;
+                }
+                if (title !== undefined) {
+                    current.title = title;
+                }
+                if (body !== undefined) {
+                    current.body = body;
+                }
+
+                await current.save({ session });
+                updated = current;
+            });
+        } finally {
+            await session.endSession();
+        }
+
+        if (updated === undefined) {
+            res.status(404).json({ message: NOT_FOUND });
+            return;
+        }
+
+        res.status(200).json(toQuestionResponse(updated));
     } catch (error: unknown) {
         console.error(error);
         res.status(500).json({ message: SERVER_ERROR });
@@ -251,8 +295,24 @@ export async function deleteQuestion(req: Request, res: Response): Promise<void>
 
         try {
             await session.withTransaction(async () => {
-                await AnswerModel.deleteMany({ questionId: question._id }, { session });
-                await QuestionModel.deleteOne({ _id: question._id }, { session });
+                // Relu dans la session : une acceptation peut avoir eu lieu depuis
+                // le findById ci-dessus, et sa réputation serait alors conservée.
+                const current = await QuestionModel.findById(question._id, null, { session });
+
+                if (current === null) {
+                    return;
+                }
+
+                if (current.acceptedAnswerId !== null && current.acceptedAnswerId !== undefined) {
+                    const accepted = await AnswerModel.findById(current.acceptedAnswerId, null, { session });
+
+                    if (accepted !== null) {
+                        await shiftAcceptedByTag(accepted.author._id, current.tags, -1, session);
+                    }
+                }
+
+                await AnswerModel.deleteMany({ questionId: current._id }, { session });
+                await QuestionModel.deleteOne({ _id: current._id }, { session });
             });
         } finally {
             await session.endSession();
