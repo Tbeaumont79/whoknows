@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { tagSlug } from './tagSlug.ts';
 
 const PASSWORD_RULES = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/;
 
@@ -20,8 +21,11 @@ export const registerUserSchema = z
             .regex(PASSWORD_RULES, 'Le mot de passe doit contenir une minuscule, une majuscule et un chiffre')
             // bcrypt ignore silencieusement tout ce qui dépasse 72 octets.
             .refine((value) => Buffer.byteLength(value) <= 72, 'Le mot de passe ne peut pas dépasser 72 octets'),
+        // Une compétence est comparée telle quelle aux slugs de tags par la
+        // recherche d'experts : sans normalisation, « React » ne matche jamais
+        // « react » et le compte reste invisible, en silence.
         skills: z
-            .array(z.string().trim().min(1, 'Une compétence ne peut pas être vide').max(30))
+            .array(tagSlug('Compétence invalide : attendu un slug de tag, par exemple « node »').pipe(z.string().max(30)))
             .max(20, 'Pas plus de 20 compétences')
             .default([]),
     })
